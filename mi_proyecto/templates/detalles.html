@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ empresa['nombre'] }} - Detalles</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header style="display: flex; align-items: center; gap: 20px;">
+            <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+            <h1>{{ empresa['nombre'] }}</h1>
+        </header>
+
+        <div class="info-bar">
+            <span><i class="fas fa-id-card"></i> <b>RUC:</b> {{ empresa['ruc'] }}</span>
+            <span><i class="fas fa-map-marker-alt"></i> {{ empresa['direccion'] }}</span>
+            <span><i class="fas fa-envelope"></i> {{ empresa['email'] }}</span>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>Documento</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                    <tbody>
+                    {% for item in datos %}
+                    <tr>
+                    <td>
+                        <b>{{ item['cliente'] }}</b><br>
+                        <small style="color: #70757a;">Fecha: {{ item['fecha'][:10] }}</small>
+                    </td>
+                    <td>
+                        <span class="type-tag {{ item['tipo'] }}">{{ item['tipo'] }}</span>
+                        <small>#{{ item['id'] }}</small>
+                        {% if item['id_referencia'] %}
+                            <br><small><b>Ref: {{ item['id_referencia'] }}</b></small>
+                        {% endif %}
+                    </td>
+                    <td>${{ item['total'] }}</td>
+                    <td>
+                        <span class="status-badge {{ item['clase_estado'] }}">
+                            {{ item['estado_calculado'] }}
+                        </span>
+                    </td>
+                        <td>
+                        {% if item['tipo'] == 'cotizacion' and not item['id_referencia'] %}
+                        <div class="expiration-timer">
+                            <i class="fas fa-clock"></i> 
+                            Expira en: <b>{{ item['dias_restantes'] }} días</b>
+                            
+                        <div class="progress-bar">
+                            {% set porcentaje = (item['dias_restantes'] | default(0) / 90) * 100 %}
+                            
+                            {# Limitamos el valor entre 0 y 100 #}
+                            {% if porcentaje > 100 %}{% set porcentaje = 100 %}{% endif %}
+                            {% if porcentaje < 0 %}{% set porcentaje = 0 %}{% endif %}
+
+                            <div class="progress-fill {{ 'urgent' if item['dias_restantes'] <= 15 else '' }}" 
+                                style="--ancho: {{ porcentaje }}%;">
+                            </div>
+                        </div>
+                        </div>
+                        {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

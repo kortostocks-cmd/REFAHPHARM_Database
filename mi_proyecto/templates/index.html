@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Empresas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📂 Mis Empresas</h1>
+        </header>
+
+        <div class="grid-container">
+            {% for empresa in empresas %}
+            <div class="card">
+                <div class="card-options">
+                    <i class="fas fa-ellipsis-v dot-icon"></i>
+                    <div class="dropdown-content">
+                        <p><b>RUC:</b> {{ empresa['ruc'] }}</p>
+                        <p><b>Tel:</b> {{ empresa['telefono'] }}</p>
+                        <p><b>Email:</b> {{ empresa['email'] }}</p>
+                    </div>
+                </div>
+                
+                <div class="card-image">
+                    <img src="{{ url_for('static', filename='img/company_' ~ empresa['id'] ~ '.jpg') }}" 
+                         onerror="this.src='https://via.placeholder.com/150?text=Empresa'" alt="Logo">
+                </div>
+
+                <div class="card-info">
+                    <h3>{{ empresa['nombre'] }}</h3>
+                    <p class="address">{{ empresa['direccion'] }}</p>
+                    <a href="/empresa/{{ empresa['id'] }}" class="btn-view">Ver Clientes</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
