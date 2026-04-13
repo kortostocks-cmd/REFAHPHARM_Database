@@ -8,74 +8,96 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header style="display: flex; align-items: center; gap: 20px;">
-            <a href="/" class="btn-back"><i class="fas fa-arrow-left"></i> Volver</a>
+<div class="container">
+    <div class="header-flex">
+        <a href="/" class="btn-back">← Volver</a>
+        <div class="company-main-title">
             <h1>{{ empresa['nombre'] }}</h1>
-        </header>
-
-        <div class="info-bar">
-            <span><i class="fas fa-id-card"></i> <b>RUC:</b> {{ empresa['ruc'] }}</span>
-            <span><i class="fas fa-map-marker-alt"></i> {{ empresa['direccion'] }}</span>
-            <span><i class="fas fa-envelope"></i> {{ empresa['email'] }}</span>
-        </div>
-
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>Documento</th>
-                        <th>Monto</th>
-                        <th>Estado</th>
-                        <th>Acción</th>
-                    </tr>
-                </thead>
-                    <tbody>
-                    {% for item in datos %}
-                    <tr>
-                    <td>
-                        <b>{{ item['cliente'] }}</b><br>
-                        <small style="color: #70757a;">Fecha: {{ item['fecha'][:10] }}</small>
-                    </td>
-                    <td>
-                        <span class="type-tag {{ item['tipo'] }}">{{ item['tipo'] }}</span>
-                        <small>#{{ item['id'] }}</small>
-                        {% if item['id_referencia'] %}
-                            <br><small><b>Ref: {{ item['id_referencia'] }}</b></small>
-                        {% endif %}
-                    </td>
-                    <td>${{ item['total'] }}</td>
-                    <td>
-                        <span class="status-badge {{ item['clase_estado'] }}">
-                            {{ item['estado_calculado'] }}
-                        </span>
-                    </td>
-                        <td>
-                        {% if item['tipo'] == 'cotizacion' and not item['id_referencia'] %}
-                        <div class="expiration-timer">
-                            <i class="fas fa-clock"></i> 
-                            Expira en: <b>{{ item['dias_restantes'] }} días</b>
-                            
-                        <div class="progress-bar">
-                            {% set porcentaje = (item['dias_restantes'] | default(0) / 90) * 100 %}
-                            
-                            {# Limitamos el valor entre 0 y 100 #}
-                            {% if porcentaje > 100 %}{% set porcentaje = 100 %}{% endif %}
-                            {% if porcentaje < 0 %}{% set porcentaje = 0 %}{% endif %}
-
-                            <div class="progress-fill {{ 'urgent' if item['dias_restantes'] <= 15 else '' }}" 
-                                style="--ancho: {{ porcentaje }}%;">
-                            </div>
-                        </div>
-                        </div>
-                        {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-            </table>
         </div>
     </div>
+
+    <div class="fiscal-card">
+        <div class="fiscal-header">
+            <i class="fas fa-file-invoice-dollar"></i>
+            <h2>Resumen de facturas</h2>
+        </div>
+        <div class="fiscal-grid">
+            {% for f in facturas %}
+            <div class="fiscal-item">
+                <div class="f-row">
+                    <span class="f-ref">REF: {{ f['id_referencia'] }}</span>
+                    <span class="f-total">${{ f['total'] }}</span>
+                </div>
+                <span class="f-client">{{ f['cliente'] }}</span>
+                <a href="{{ f['pdf_url'] }}" target="_blank" class="f-link">Ver Comprobante</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="history-section">
+        <h3>Historial por Meses</h3>
+        {% for mes, documentos in grupos.items() %}
+        <details class="month-group" {{ 'open' if loop.first else '' }}>
+            <summary class="month-header">
+                <i class="fas fa-folder folder-icon"></i>
+                <span class="month-title">{{ mes }}</span>
+                <span class="count">{{ documentos|length }} archivos</span>
+                <i class="fas fa-chevron-down arrow-ui"></i>
+            </summary>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Monto</th>
+                            <th>Estado</th>
+                            <th>Vencimiento</th>
+                        </tr>
+                    </thead>
+                        <tbody>
+                            {% for item in documentos %}
+                            <tr>
+                                <td>
+                                    <b>{{ item['cliente'] }}</b><br>
+                                    <small class="text-muted">{{ item['fecha'][:10] }}</small>
+                                </td>
+                                <td>
+                                    <span class="type-tag {{ item['tipo'] }}">{{ item['tipo'] }}</span>
+                                </td>
+                                <td><b>${{ item['total'] }}</b></td>
+                                <td>
+                                    <span class="status-badge {{ item['clase_estado'] }}">
+                                        {{ item['estado_calculado'] }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {# LÓGICA PARA MOSTRAR PDF SI ESTÁ FACTURADO #}
+                                    {% if item['id_referencia'] and item['pdf_url'] %}
+                                        <a href="{{ item['pdf_url'] }}" target="_blank" class="link-view">
+                                            <i class="fas fa-file-pdf"></i> Ver Factura
+                                        </a>
+                                    
+                                    {# LÓGICA PARA MOSTRAR TIMER SI ES COTIZACIÓN PENDIENTE #}
+                                    {% elif item['tipo'] == 'cotizacion' %}
+                                        <div class="expiration-timer">
+                                            <div class="progress-bar">
+                                                <div class="progress-fill {{ 'urgent' if item['dias_restantes'] <= 15 else '' }}" 
+                                                    style="--ancho: {{ (item['dias_restantes'] / 90) * 100 }}%;"></div>
+                                            </div>
+                                            <small>{{ item['dias_restantes'] }} días</small>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                </table>
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</div>
 </body>
 </html>

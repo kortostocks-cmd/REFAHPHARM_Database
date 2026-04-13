@@ -2,6 +2,8 @@ from flask import Flask, render_template, send_file
 import sqlite3
 import pandas as pd
 import io
+from datetime import datetime
+from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -13,43 +15,61 @@ def conectar_db():
 @app.route('/')
 def index():
     db = conectar_db()
-    # Fetch all companies to show as cards
-    empresas = db.execute("SELECT * FROM empresas").fetchall()
-    db.close()
-    return render_template('index.html', empresas=empresas)
-
-
-
-from datetime import datetime
+    try:
+        empresas = db.execute("SELECT * FROM empresas").fetchall()
+        return render_template('index.html', empresas=empresas)
+    finally:
+        db.close()
 
 @app.route('/empresa/<int:id>')
 def detalles_empresa(id):
     db = conectar_db()
-    empresa = db.execute("SELECT * FROM empresas WHERE id = ?", (id,)).fetchone()
-    
-    # SQLite calcula los días restantes y el estado inteligente directamente
-    query = """
-    SELECT 
-        c.nombre AS cliente, 
-        d.id, d.tipo, d.total, d.pdf_url, d.id_referencia, d.fecha,
-        CASE 
-            WHEN d.id_referencia IS NOT NULL THEN 'Facturado'
-            ELSE COALESCE(d.estado, 'Pendiente')
-        END AS estado_calculado,
-        CASE 
-            WHEN d.id_referencia IS NOT NULL THEN 'pagado'
-            ELSE LOWER(COALESCE(d.estado, 'pendiente'))
-        END AS clase_estado,
-        -- Calculamos la diferencia de días directamente en SQL
-        CAST(90 - (julianday('now') - julianday(substr(d.fecha, 1, 10))) AS INTEGER) AS dias_restantes
-    FROM clientes c
-    LEFT JOIN documentos d ON c.id = d.cliente_id
-    WHERE c.empresa_id = ?
-    ORDER BY d.fecha DESC
-    """
-    datos = db.execute(query, (id,)).fetchall()
-    db.close()
-    return render_template('detalles.html', empresa=empresa, datos=datos)
+    try:
+        empresa = db.execute("SELECT * FROM empresas WHERE id = ?", (id,)).fetchone()
+        
+        query = """
+        SELECT c.nombre AS cliente, d.id, d.tipo, d.total, d.pdf_url, d.id_referencia, d.fecha, d.estado
+        FROM clientes c
+        LEFT JOIN documentos d ON c.id = d.cliente_id
+        WHERE c.empresa_id = ?
+        ORDER BY d.fecha DESC
+        """
+        filas = db.execute(query, (id,)).fetchall()
+        
+        grupos_por_mes = defaultdict(list)
+        facturas_fiscales = []
+        hoy = datetime.now()
+
+        for f in filas:
+            doc = dict(f)
+            # Lógica de Facturado: Si tiene referencia, es Facturado
+            if doc['id_referencia']:
+                doc['estado_calculado'] = 'Facturado'
+                doc['clase_estado'] = 'pagado'
+                facturas_fiscales.append(doc)
+            else:
+                doc['estado_calculado'] = doc['estado'] or 'Pendiente'
+                doc['clase_estado'] = doc['estado'].lower() if doc['estado'] else 'pendiente'
+
+            # Cálculo de tiempo y agrupación por carpetas (meses)
+            if doc['fecha']:
+                try:
+                    fecha_dt = datetime.strptime(doc['fecha'][:10], '%Y-%m-%d')
+                    doc['dias_restantes'] = max(0, 90 - (hoy - fecha_dt).days)
+                    mes_nombre = fecha_dt.strftime('%B %Y').capitalize()
+                    grupos_por_mes[mes_nombre].append(doc)
+                except:
+                    grupos_por_mes["Sin Fecha"].append(doc)
+            else:
+                grupos_por_mes["Sin Fecha"].append(doc)
+
+        # El return debe ir FUERA del bucle for
+        return render_template('detalles.html', 
+                            empresa=empresa, 
+                            grupos=grupos_por_mes, 
+                            facturas=facturas_fiscales)
+    finally:
+        db.close()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
